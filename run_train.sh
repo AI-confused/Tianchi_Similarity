@@ -1,14 +1,15 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=0,3
 i=0
 while [ "$i" -le 4 ];
 do
 
 python run_bert.py \
 --model_name_or_path ./chinese_wwm_ext_pytorch \
---do_test \
+--do_train \
+--do_eval \
 --index $i \
 --data_dir ./data/data_$i \
---output_dir ./output_base_wwm_$i \
+--output_dir ./output_base_wwm_duidiao_$i \
 --max_seq_length 64 \
 --eval_steps 200 \
 --per_gpu_train_batch_size 32 \
@@ -22,4 +23,7 @@ python run_bert.py \
 
 i=$(( i + 1 ))
 done
-python fuse.py
+
+
+
+

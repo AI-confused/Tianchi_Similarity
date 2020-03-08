@@ -64,9 +64,14 @@ class InputFeatures(object):
         
 def read_examples(input_file, is_training):
     df=pd.read_csv(input_file)
-    examples=[]
-    for val in df[['id','query1','query2','label']].values:
-        examples.append(InputExample(guid=val[0],text_a=val[1],text_b=val[2],label=val[3]))
+    if is_training:
+        examples=[]
+        for val in df[['id','query1','query2','label']].values:
+            examples.append(InputExample(guid=val[0],text_a=val[1],text_b=val[2],label=val[3]))
+    else:
+        examples=[]
+        for val in df[['id','query1','query2']].values:
+            examples.append(InputExample(guid=val[0],text_a=val[1],text_b=val[2]))
     return examples
 
 def convert_examples_to_features(examples, tokenizer, max_seq_length, is_training):
@@ -89,8 +94,11 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length, is_trainin
         input_mask += ([0] * padding_length)
         segment_ids += ([0] * padding_length)
         choices_features = (tokens, input_ids, input_mask, segment_ids)
-
-        label = example.label
+        
+        if is_training:
+            label = example.label
+        else:
+            label = 0
         if example_index < 1 and is_training:
             logger.info("*** Example ***")
             logger.info("idx: {}".format(example_index))
@@ -163,6 +171,8 @@ def main():
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
+    parser.add_argument("--do_eval_train", action='store_true',
+                        help="Whether to run eval on the train set.")
     parser.add_argument("--per_gpu_train_batch_size", default=8, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--per_gpu_eval_batch_size", default=8, type=int,
@@ -181,7 +191,7 @@ def main():
                         help="")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument('--seed', type=int, default=1,
                         help="random seed for initialization")
 
     args = parser.parse_args()
@@ -206,8 +216,7 @@ def main():
 
     if args.do_train:
         # Prepare model
-#         model = BertForSimilary.from_pretrained(args.model_name_or_path, config=config)
-        model = BertForSimilary.from_pretrained('./output_base_wwm_%d/pytorch_model.bin'%args.index, config=config) #对调q1,q2
+        model = BertForSimilary.from_pretrained(args.model_name_or_path, config=config)
 
         model.to(device)
 
@@ -259,7 +268,9 @@ def main():
         bar = tqdm(range(num_train_optimization_steps),total=num_train_optimization_steps)
         train_dataloader=cycle(train_dataloader)
 
-        
+        output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
+        with open(output_eval_file, "w") as writer:
+            writer.write('*'*80)
         for step in bar:
             batch = next(train_dataloader)
             batch = tuple(t.to(device) for t in batch)
@@ -293,12 +304,16 @@ def main():
 
 
             if args.do_eval and (step + 1) %(args.eval_steps*args.gradient_accumulation_steps)==0:
-                for file in ['train.csv', 'dev.csv']:
+                if args.do_eval_train:
+                    file_list = ['train.csv','dev.csv']
+                else:
+                    file_list = ['dev.csv']
+                for file in file_list:
                     inference_labels=[]
                     gold_labels=[]
                     inference_logits=[]
                     eval_examples = read_examples(os.path.join(args.data_dir, file), is_training = True)
-                    eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, False)
+                    eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, True)
                     all_input_ids = torch.tensor(select_field(eval_features, 'input_ids'), dtype=torch.long)
                     all_input_mask = torch.tensor(select_field(eval_features, 'input_mask'), dtype=torch.long)
                     all_segment_ids = torch.tensor(select_field(eval_features, 'segment_ids'), dtype=torch.long)
@@ -319,7 +334,7 @@ def main():
                     model.eval()
                     eval_loss, eval_accuracy = 0, 0
                     nb_eval_steps, nb_eval_examples = 0, 0
-                    for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
+                    for input_ids, input_mask, segment_ids, label_ids in tqdm(eval_dataloader):
                         input_ids = input_ids.to(device)
                         input_mask = input_mask.to(device)
                         segment_ids = segment_ids.to(device)
@@ -350,10 +365,9 @@ def main():
                               'global_step': global_step,
                               'loss': train_loss}
 
-                    output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
                     if 'dev' in file:
                         with open(output_eval_file, "a") as writer:
-                            writer.write(file)
+                            writer.write(file+'\n')
                             for key in sorted(result.keys()):
                                 logger.info("  %s = %s", key, str(result[key]))
                                 writer.write("%s = %s\n" % (key, str(result[key])))
@@ -393,7 +407,6 @@ def main():
         all_segment_ids = torch.tensor(select_field(eval_features, 'segment_ids'), dtype=torch.long)
 #         all_labels = torch.tensor([f.label for f in eval_features], dtype=torch.long)                   
 
-
         
         eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids)
         # Run prediction for full data
@@ -401,7 +414,7 @@ def main():
         eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
         model.eval()
-        for input_ids, input_mask, segment_ids in eval_dataloader:
+        for input_ids, input_mask, segment_ids in tqdm(eval_dataloader):
             input_ids = input_ids.to(device)
             input_mask = input_mask.to(device)
             segment_ids = segment_ids.to(device)
