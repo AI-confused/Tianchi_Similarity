@@ -64,7 +64,7 @@ class InputFeatures(object):
         
 def read_examples(input_file, is_training):
     df=pd.read_csv(input_file)
-    if is_training:
+    if is_training==1 or is_training==2:
         examples=[]
         for val in df[['id','query1','query2','label']].values:
             examples.append(InputExample(guid=val[0],text_a=val[1],text_b=val[2],label=val[3]))
@@ -95,11 +95,11 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length, is_trainin
         segment_ids += ([0] * padding_length)
         choices_features = (tokens, input_ids, input_mask, segment_ids)
         
-        if is_training:
+        if is_training==1 or is_training==2:
             label = example.label
         else:
             label = 0
-        if example_index < 1 and is_training:
+        if example_index < 1 and is_training==1:
             logger.info("*** Example ***")
             logger.info("idx: {}".format(example_index))
             logger.info("guid: {}".format(example.guid))
@@ -225,9 +225,9 @@ def main():
 
         args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     
-        train_examples = read_examples(os.path.join(args.data_dir, 'train.csv'), is_training = True)
+        train_examples = read_examples(os.path.join(args.data_dir, 'train.csv'), is_training = 1)
         train_features = convert_examples_to_features(
-            train_examples, tokenizer, args.max_seq_length, True)
+            train_examples, tokenizer, args.max_seq_length, 1)
         all_input_ids = torch.tensor(select_field(train_features, 'input_ids'), dtype=torch.long)
         all_input_mask = torch.tensor(select_field(train_features, 'input_mask'), dtype=torch.long)
         all_segment_ids = torch.tensor(select_field(train_features, 'segment_ids'), dtype=torch.long)
@@ -312,8 +312,8 @@ def main():
                     inference_labels=[]
                     gold_labels=[]
                     inference_logits=[]
-                    eval_examples = read_examples(os.path.join(args.data_dir, file), is_training = True)
-                    eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, True)
+                    eval_examples = read_examples(os.path.join(args.data_dir, file), is_training = 2)
+                    eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, 2)
                     all_input_ids = torch.tensor(select_field(eval_features, 'input_ids'), dtype=torch.long)
                     all_input_mask = torch.tensor(select_field(eval_features, 'input_mask'), dtype=torch.long)
                     all_segment_ids = torch.tensor(select_field(eval_features, 'segment_ids'), dtype=torch.long)
@@ -385,8 +385,9 @@ def main():
                         print("="*80)
                     else:
                         print("="*80)
-                        
-                        
+        with open(output_eval_file, "a") as writer:
+            writer.write('bert_acc: %f'%best_acc)
+    
     if args.do_test:
         args.do_train=False
         model = BertForSimilary.from_pretrained(os.path.join(args.output_dir, "pytorch_model.bin"), config=config)
@@ -394,14 +395,14 @@ def main():
         model.to(device)
 
         test_file = '/tcdata/test.csv'
-#         test_file = 'data/dev.csv'
+#         test_file = 'data/unknow_generate.csv'
         if args.n_gpu > 1:
             model = torch.nn.DataParallel(model)        
         
         inference_labels=[]
         gold_labels=[]
-        eval_examples = read_examples(test_file, is_training = False)
-        eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, False)
+        eval_examples = read_examples(test_file, is_training = 3)
+        eval_features = convert_examples_to_features(eval_examples, tokenizer, args.max_seq_length, 3)
         all_input_ids = torch.tensor(select_field(eval_features, 'input_ids'), dtype=torch.long)
         all_input_mask = torch.tensor(select_field(eval_features, 'input_mask'), dtype=torch.long)
         all_segment_ids = torch.tensor(select_field(eval_features, 'segment_ids'), dtype=torch.long)
@@ -427,8 +428,7 @@ def main():
         df=pd.read_csv(test_file)
         df['logit_0']=logits[:,0]
         df['logit_1']=logits[:,1]
-#         df['label'] = np.argmax(logits, axis=1)
-#         print(get_accuracy(df['label'], all_labels.numpy()))
+
         work_dir = 'logit_result/result_%d.csv'%args.index
         df[['id', 'logit_0', 'logit_1']].to_csv(work_dir, index=False)
         logger.info('predict done')

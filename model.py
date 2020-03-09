@@ -21,16 +21,18 @@ class BertForSimilary(BertPreTrainedModel):
                             position_ids=position_ids, 
                             head_mask=head_mask)
 
-#         sequence_output = outputs[0]
-        pooled_output = outputs[1]
+        sequence_output = outputs[0]
+#         pooled_output = outputs[1]
     
         # classification
-        pooled_output = self.dropout(pooled_output)
+        pooled_output = self.dropout(sequence_output)
+        pooled_output = pooled_output.mean(dim=1)
         logits = self.classifier(pooled_output)
         #logits = self.classifier1(logits)
         
         if labels is not None:
-            loss_fct = CrossEntropyLoss(weight=torch.from_numpy(np.array([0.667,1])).float(), size_average=True).to('cuda')
+#             loss_fct = CrossEntropyLoss()
+            loss_fct = CrossEntropyLoss(weight=torch.from_numpy(np.array([0.5755,1])).float(), size_average=True).to('cuda')
             loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             outputs = loss
         else:
