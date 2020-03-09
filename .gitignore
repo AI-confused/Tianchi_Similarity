@@ -133,4 +133,4 @@ output_*/
 bert_base_chinese/
 chinese_*/
 logit_result/
-
+data/
