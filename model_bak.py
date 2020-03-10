@@ -21,17 +21,17 @@ class BertForSimilary(BertPreTrainedModel):
                             position_ids=position_ids, 
                             head_mask=head_mask)
 
-#         sequence_output = outputs[0]
-        pooled_output = outputs[1]
+        sequence_output = outputs[0]
+#         pooled_output = outputs[1]
     
         # classification
-        pooled_output = self.dropout(pooled_output)
+        pooled_output = self.dropout(sequence_output)
         # 做 bert_enc mean
-#         mask_2 = attention_mask # 其余等于 1 的部分，即有效的部分                
-#         mask_2_expand = mask_2.unsqueeze_(-1).expand(pooled_output.size()).float()
-#         sum_mask = mask_2_expand.sum(dim=1) # 有效的部分“长度”求和
-#         sum_mask = torch.clamp(sum_mask, min=1e-9)
-#         pooled_output = torch.sum(pooled_output * mask_2_expand, dim=1) / sum_mask
+        mask_2 = attention_mask # 其余等于 1 的部分，即有效的部分                
+        mask_2_expand = mask_2.unsqueeze_(-1).expand(pooled_output.size()).float()
+        sum_mask = mask_2_expand.sum(dim=1) # 有效的部分“长度”求和
+        sum_mask = torch.clamp(sum_mask, min=1e-9)
+        pooled_output = torch.sum(pooled_output * mask_2_expand, dim=1) / sum_mask
 
 #         pooled_output = pooled_output.mean(dim=1)
         logits = self.classifier(pooled_output)

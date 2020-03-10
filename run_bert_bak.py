@@ -284,7 +284,7 @@ def main():
     if args.do_train:
         # Prepare model
         model = BertForSimilary.from_pretrained(args.model_name_or_path, config=config)
-        fgm = FGM(model)
+#         fgm = FGM(model)
 #         pgd = PGD(model)
 #         K = 3
 #         print(model)
@@ -360,14 +360,14 @@ def main():
 
             loss.backward()
             # 对抗训练
-            fgm.attack() # 在embedding上添加对抗扰动
-            loss_adv = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
-            if args.n_gpu > 1:
-                loss_adv = loss_adv.mean() # mean() to average on multi-gpu.
-            if args.gradient_accumulation_steps > 1:
-                loss_adv = loss_adv / args.gradient_accumulation_steps
-            loss_adv.backward() # 反向传播，并在正常的grad基础上，累加对抗训练的梯度
-            fgm.restore() # 恢复embedding参数
+#             fgm.attack() # 在embedding上添加对抗扰动
+#             loss_adv = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
+#             if args.n_gpu > 1:
+#                 loss_adv = loss_adv.mean() # mean() to average on multi-gpu.
+#             if args.gradient_accumulation_steps > 1:
+#                 loss_adv = loss_adv / args.gradient_accumulation_steps
+#             loss_adv.backward() # 反向传播，并在正常的grad基础上，累加对抗训练的梯度
+#             fgm.restore() # 恢复embedding参数
             
 
             if (nb_tr_steps + 1) % args.gradient_accumulation_steps == 0:
