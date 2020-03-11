@@ -37,8 +37,8 @@ class BertForSimilary(BertPreTrainedModel):
         logits = self.classifier(pooled_output)
         
         if labels is not None:
-#             loss_fct = CrossEntropyLoss()
-            loss_fct = CrossEntropyLoss(weight=torch.from_numpy(np.array([0.5755,1])).float(), size_average=True).to('cuda')
+            loss_fct = CrossEntropyLoss()
+#             loss_fct = CrossEntropyLoss(weight=torch.from_numpy(np.array([0.5755,1])).float(), size_average=True).to('cuda')
             loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             outputs = loss
         else:
